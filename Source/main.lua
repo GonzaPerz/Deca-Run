@@ -63,7 +63,7 @@ Jugador = {
 Juego = { gameover = false, victoria = false, enemigos = {} }
 Mapa = { ancho = 12, alto = 9, tam_tile = 32, grilla = {} } 
 
--- Cálculo de centrado de la habitación
+-- Calculo de centrado de la habitacion
 local offsetX = (800 / ESCALA_MUNDO - (Mapa.ancho * Mapa.tam_tile)) / 2
 local offsetY = (600 / ESCALA_MUNDO - (Mapa.alto * Mapa.tam_tile)) / 2
 
@@ -82,7 +82,7 @@ function crearAnimacion(imagen, cant_frames)
     return quads
 end
 
--- =================== INICIALIZACIÓN ===================
+-- =================== INICIALIZACION ===================
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
     love.graphics.setNewFont(36) 
@@ -120,6 +120,11 @@ function love.load()
     Texturas.arana_quieto = love.graphics.newImage("Sprites/Araña.png")
     Texturas.arana_mov = love.graphics.newImage("Sprites/Araña_movienose.png")
     
+
+    Sonido_ataque = love.audio.newSource("Sounds/ataque.mp3","static")
+    Sonido_golpe = love.audio.newSource("Sounds/golpe.mp3","static")
+
+
     table.insert(Juego.enemigos, Enemigo:Nuevo(80, 80, "slime", 25))
     table.insert(Juego.enemigos, Enemigo:Nuevo(280, 80, "slime", 25))
     table.insert(Juego.enemigos, Enemigo:Nuevo(250, 150, "esqueleto", 35))
@@ -128,12 +133,14 @@ function love.load()
     table.insert(Juego.enemigos, Enemigo:Nuevo(150, 200, "arana", 50))
 end
 
--- =================== INTERACCIÓN ===================
+-- =================== INTERACCION ===================
 function love.keypressed(key)
     if key == "space" and not Jugador.atacando then
         Jugador.atacando = true
         Jugador.ataque_timer = Jugador.ataque_duracion
         
+        Sonido_ataque:play()
+
         local hit_x, hit_y = Jugador.x, Jugador.y
         local hit_w, hit_h = 35, 35
         
@@ -147,12 +154,13 @@ function love.keypressed(key)
             local ey = enemigo.y + enemigo.hit_oy
             if enemigo.vivo and hayColision(hit_x, hit_y, hit_w, hit_h, ex, ey, enemigo.hit_w, enemigo.hit_h) then
                 enemigo.vivo = false
+                Sonido_golpe:play()
             end
         end
     end
 end
 
--- =================== ACTUALIZACIÓN ===================
+-- =================== ACTUALIZACION ===================
 function love.update(dt)
     if Juego.gameover or Juego.victoria then return end
 
@@ -210,7 +218,7 @@ end
 function love.draw()
     love.graphics.push()
     love.graphics.scale(ESCALA_MUNDO, ESCALA_MUNDO)
-    love.graphics.translate(offsetX, offsetY) -- ¡Magia! Centra todo el juego
+    love.graphics.translate(offsetX, offsetY)
 
     for col = 0, Mapa.ancho - 1 do
         for row = 0, Mapa.alto - 1 do
@@ -293,7 +301,7 @@ function love.draw()
     end
     if Juego.victoria then 
         love.graphics.setColor(0, 1, 0)
-        love.graphics.printf("HABITACION SUPERADA", 0, 250, 800, "center") 
+        love.graphics.printf("CLEAR", 0, 250, 800, "center") 
     end
     love.graphics.setColor(1, 1, 1)
 end
