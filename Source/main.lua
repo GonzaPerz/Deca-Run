@@ -7,6 +7,9 @@ Texturas = {}
 Sonidos = {}  
 local ESCALA_MUNDO = 2
 
+-- Variable global para el puntaje
+Juego = { gameover = false, victoria = false, enemigos = {}, puntaje = 0 }
+
 -- =================== PATRÓN MÁQUINA DE ESTADOS ===================
 local MaquinaEstados = {
     estado_actual = nil
@@ -15,7 +18,6 @@ local MaquinaEstados = {
 function MaquinaEstados:Cambiar(nuevo_estado, params)
     if self.estado_actual and self.estado_actual.Salir then self.estado_actual:Salir() end
     self.estado_actual = nuevo_estado
-    -- Pasamos parámetros (como el lado prohibido) al nuevo estado
     if self.estado_actual and self.estado_actual.Entrar then self.estado_actual:Entrar(params) end
 end
 
@@ -24,11 +26,17 @@ local EstadoMenu = {}
 function EstadoMenu:Entrar() end
 function EstadoMenu:Update(dt) end
 function EstadoMenu:Draw()
+    love.graphics.setColor(1, 1, 1)
+    
+    love.graphics.setFont(FuenteGrande)
     love.graphics.printf("DECA-RUN", 0, 200, 800, "center")
+    
+    love.graphics.setFont(FuenteChica)
     love.graphics.printf("Presiona ENTER para Iniciar", 0, 300, 800, "center")
 end
 function EstadoMenu:Keypressed(key)
     if key == "return" then
+        Juego.puntaje = 0 
         MaquinaEstados:Cambiar(EstadoJugando)
     end
 end
@@ -37,20 +45,19 @@ end
 EstadoJugando = {
     habitacion = nil, jugador = nil, enemigos = {},
     offsetX = 0, offsetY = 0,
-    estado_partida = "activo"
+    estado_partida = "activo",
+    puntos_sala_otorgados = false
 }
 
 function EstadoJugando:Entrar(params)
-    -- Leemos el lado prohibido de la habitación anterior
     local prohibido = params and params.lado_prohibido or 0
     
     self.habitacion = Habitacion:Nueva(12, 9, prohibido)
-    -- Instanciamos al jugador siempre en el centro de la sala
     self.jugador = JugadorClass:Nuevo(192, 144) 
     
-    -- Le pasamos las coordenadas del jugador para evitar que los enemigos nazcan encima
     self.enemigos = self.habitacion:GenerarEnemigos(Enemigo, self.jugador.x, self.jugador.y)
     self.estado_partida = "activo"
+    self.puntos_sala_otorgados = false 
     
     self.offsetX = (800 / ESCALA_MUNDO - (self.habitacion.ancho * self.habitacion.tam_tile)) / 2
     self.offsetY = (600 / ESCALA_MUNDO - (self.habitacion.alto * self.habitacion.tam_tile)) / 2
@@ -60,6 +67,23 @@ function EstadoJugando:Update(dt)
     if self.estado_partida == "derrota" then return end
 
     self.jugador:Actualizar(dt)
+
+    -- Logica de separación de enemigos
+    for i, e1 in ipairs(self.enemigos) do
+        if e1.vivo then
+            for j, e2 in ipairs(self.enemigos) do
+                if i ~= j and e2.vivo then
+                    local dx = e1.x - e2.x
+                    local dy = e1.y - e2.y
+                    local dist = math.sqrt(dx*dx + dy*dy)
+                    if dist < 20 and dist > 0.1 then
+                        e1.x = e1.x + (dx / dist) * 40 * dt
+                        e1.y = e1.y + (dy / dist) * 40 * dt
+                    end
+                end
+            end
+        end
+    end
 
     local enemigosVivos = 0
     local jx = self.jugador.x + self.jugador.hit_ox
@@ -80,13 +104,17 @@ function EstadoJugando:Update(dt)
     end
     
     if enemigosVivos == 0 then 
+        if not self.puntos_sala_otorgados then
+            Juego.puntaje = Juego.puntaje + 50 
+            self.puntos_sala_otorgados = true
+        end
+
         self.estado_partida = "victoria" 
         
         local puerta_x = self.habitacion.puerta_col * self.habitacion.tam_tile
         local puerta_y = self.habitacion.puerta_row * self.habitacion.tam_tile
         
         if hayColision(jx, jy, self.jugador.hit_w, self.jugador.hit_h, puerta_x, puerta_y, 32, 32) then
-            -- Calculamos de qué lado estaba esta puerta para prohibir el lado opuesto en la siguiente
             local lado = self.habitacion.lado_puerta
             local opuesto = 0
             if lado == 1 then opuesto = 3
@@ -100,6 +128,7 @@ function EstadoJugando:Update(dt)
 end
 
 function EstadoJugando:Draw()
+    -- Renderizado del mundo
     love.graphics.push()
     love.graphics.scale(ESCALA_MUNDO, ESCALA_MUNDO)
     love.graphics.translate(self.offsetX, self.offsetY)
@@ -119,21 +148,28 @@ function EstadoJugando:Draw()
     end
     love.graphics.pop() 
 
+    -- Renderizado de UI 
+    love.graphics.setFont(FuenteChica)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Puntaje: " .. Juego.puntaje, 15, 15, 770, "left")
+
     if self.estado_partida == "derrota" then 
+        love.graphics.setFont(FuenteGrande)
         love.graphics.setColor(1, 0, 0)
         love.graphics.printf("GAME OVER - Presiona R para reiniciar", 0, 250, 800, "center") 
     elseif self.estado_partida == "victoria" then 
+        love.graphics.setFont(FuenteChica)
         love.graphics.setColor(0, 1, 0)
-        love.graphics.printf("SALA LIMPIA - Ve por la puerta", 0, 250, 800, "center") 
+        love.graphics.printf("SALA LIMPIA - Ve por la puerta", 0, 80, 800, "center") 
     end
-    love.graphics.setColor(1, 1, 1)
+    love.graphics.setColor(1, 1, 1) 
 end
 
 function EstadoJugando:Keypressed(key)
     if self.estado_partida == "activo" and key == "space" then
         self.jugador:Atacar(self.enemigos)
     elseif self.estado_partida == "derrota" and key == "r" then
-        MaquinaEstados:Cambiar(EstadoJugando)
+        MaquinaEstados:Cambiar(EstadoMenu) 
     end
 end
 
@@ -154,8 +190,11 @@ end
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
-    love.graphics.setNewFont(36) 
+    
+    FuenteGrande = love.graphics.newFont(36)
+    FuenteChica = love.graphics.newFont(24) 
 
+    
     Sonidos.ataque = love.audio.newSource("Sounds/ataque.mp3", "static")
     Sonidos.golpe = love.audio.newSource("Sounds/golpe.mp3", "static")
 

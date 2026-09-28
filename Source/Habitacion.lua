@@ -26,10 +26,10 @@ function Habitacion:Nueva(ancho_tiles, alto_tiles, lado_prohibido)
         end
     end
     
-    -- Elegimos un lado al azar que no sea el prohibido
+    
     o.lado_puerta = lados_validos[math.random(1, #lados_validos)]
 
-    -- Posicionamos la puerta evitando las esquinas
+    -- Se posiciona la puerta evitando las esquinas
     if o.lado_puerta == 1 then -- Arriba
         o.puerta_col = math.random(1, o.ancho - 2)
         o.puerta_row = 0
@@ -56,7 +56,6 @@ function Habitacion:GenerarEnemigos(EnemigoClass, player_x, player_y)
         local rand_x, rand_y
         local distancia = 0
         
-        -- ZONA SEGURA: Seguimos buscando coordenadas hasta que estén a más de 120 píxeles del jugador
         repeat
             rand_x = math.random(64, (self.ancho * self.tam_tile) - 64)
             rand_y = math.random(64, (self.alto * self.tam_tile) - 64)
