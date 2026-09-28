@@ -39,6 +39,10 @@ function Jugador:Atacar(enemigos)
             local ey = enemigo.y + enemigo.hit_oy
             if enemigo.vivo and hayColision(hit_x, hit_y, hit_w, hit_h, ex, ey, enemigo.hit_w, enemigo.hit_h) then
                 enemigo.vivo = false
+                
+                -- Sumar puntos por enemigo derrotado
+                Juego.puntaje = Juego.puntaje + 10
+                
                 Sonidos.golpe:stop()
                 Sonidos.golpe:play()
             end
