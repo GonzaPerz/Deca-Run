@@ -7,7 +7,6 @@ function Enemigo:Nuevo(x, y, tipo, vel)
     o.x = x; o.y = y; o.tipo = tipo; o.velocidad = vel
     o.vivo = true; o.moviendose = false
     
-    
     if tipo == "slime" then
         o.img_quieto = Texturas.slime_quieto; o.img_mov = Texturas.slime_mov
     elseif tipo == "esqueleto" then
@@ -19,10 +18,11 @@ function Enemigo:Nuevo(x, y, tipo, vel)
     o.ancho = o.img_quieto:getWidth()
     o.alto = o.img_quieto:getHeight()
     
-    o.hit_ox = 6; o.hit_oy = 6
-    o.hit_w = o.ancho - 12; o.hit_h = o.alto - 12
+    -- Ajuste de Hitbox seguro para sprites pequeños
+    o.hit_ox = 2; o.hit_oy = 2
+    o.hit_w = math.max(4, o.ancho - 4)
+    o.hit_h = math.max(4, o.alto - 4)
 
-    
     o.quads_mov = crearAnimacion(o.img_mov, 2)
     o.anim_index = 1
     o.anim_vel = 6 
@@ -48,6 +48,5 @@ function Enemigo:Actualizar(dt, target_x, target_y)
         self.anim_index = 1
     end
 end
-
 
 return Enemigo
