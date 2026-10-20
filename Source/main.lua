@@ -10,9 +10,12 @@ local HUDClass = require("HUD")
 Texturas = {}
 local ESCALA_MUNDO = 2
 local InterfazHUD = nil
+MusicaFondo = nil
+SonidoGolpe = nil
 
 Juego = { gameover = false, victoria = false, enemigos = {}, puntaje = 0, sala_actual = 1 }
-Opciones = { musica_on = true, volumen = 1.0, res_index = 1 }
+-- Agregamos sfx_on para controlar los efectos de sonido por separado
+Opciones = { musica_on = true, sfx_on = true, volumen = 1.0, res_index = 1 }
 local Resoluciones = { {800, 600}, {1024, 768}, {1280, 960} }
 
 local MaquinaEstados = { estado_actual = nil }
@@ -27,14 +30,14 @@ local EstadoMenu = { botones = {} }
 function EstadoMenu:Entrar()
     local sc = 0.3 
     self.botones = {
-        { img = Texturas.btn_play, id = "play", y_offset = -100, base_scale = sc, scale = sc, target_scale = sc, accion = function() 
+        { img = Texturas.btn_play, id = "play", x_offset = 0, y_offset = -100, base_scale = sc, scale = sc, target_scale = sc, accion = function() 
             Juego.puntaje = 0; Juego.sala_actual = 1; Evento.emit("reset_juego"); MaquinaEstados:Cambiar(EstadoJugando)
         end },
-        { img = Texturas.btn_options, id = "options", y_offset = 0, base_scale = sc, scale = sc, target_scale = sc, accion = function() 
+        { img = Texturas.btn_options, id = "options", x_offset = 0, y_offset = 0, base_scale = sc, scale = sc, target_scale = sc, accion = function() 
             MaquinaEstados:Cambiar(EstadoOpciones) 
         end },
-        { img = Texturas.btn_exit, id = "exit", y_offset = 100, base_scale = sc, scale = sc, target_scale = sc, accion = function() love.event.quit() end },
-        { img = Texturas.btn_info, id = "info", base_scale = 0.15, scale = 0.15, target_scale = 0.15, accion = function() print("Créditos: Juego creado por crack") end }
+        { img = Texturas.btn_exit, id = "exit", x_offset = 0, y_offset = 100, base_scale = sc, scale = sc, target_scale = sc, accion = function() love.event.quit() end },
+        { img = Texturas.btn_info, id = "info", x_offset = 0, y_offset = 0, base_scale = 0.15, scale = 0.15, target_scale = 0.15, accion = function() print("Créditos: Juego creado por crack") end }
     }
 end
 
@@ -48,7 +51,7 @@ function EstadoMenu:Update(dt)
         if btn.id == "info" then
             bx = love.graphics.getWidth() - 40; by = love.graphics.getHeight() - 40
         else
-            bx = cx; by = cy + btn.y_offset
+            bx = cx + btn.x_offset; by = cy + btn.y_offset
         end
         btn.x = bx; btn.y = by
         
@@ -84,11 +87,22 @@ EstadoOpciones = { botones = {} }
 function EstadoOpciones:Entrar()
     local sc = 0.3 
     self.botones = {
-        { img = Texturas.btn_music, id = "music", y_offset = -70, base_scale = sc, scale = sc, target_scale = sc, accion = function() 
+        { img = Texturas.btn_music, id = "music", x_offset = 0, y_offset = -70, base_scale = sc, scale = sc, target_scale = sc, accion = function() 
             Opciones.musica_on = not Opciones.musica_on
-            love.audio.setVolume(Opciones.musica_on and Opciones.volumen or 0)
+            if MusicaFondo then
+                if Opciones.musica_on then
+                    MusicaFondo:play()
+                    MusicaFondo:setVolume(Opciones.volumen)
+                else
+                    MusicaFondo:pause()
+                end
+            end
         end },
-        { img = Texturas.btn_exit, id = "exit", y_offset = 180, base_scale = sc, scale = sc, target_scale = sc, accion = function() MaquinaEstados:Cambiar(EstadoMenu) end }
+        -- Integramos el botón de Audio para mutear los sonidos de golpe
+        { img = Texturas.btn_audio, id = "audio", x_offset = -120, y_offset = 20, base_scale = 0.25, scale = 0.25, target_scale = 0.25, accion = function() 
+            Opciones.sfx_on = not Opciones.sfx_on
+        end },
+        { img = Texturas.btn_exit, id = "exit", x_offset = 0, y_offset = 180, base_scale = sc, scale = sc, target_scale = sc, accion = function() MaquinaEstados:Cambiar(EstadoMenu) end }
     }
 end
 
@@ -98,12 +112,11 @@ function EstadoOpciones:Update(dt)
     local cy = love.graphics.getHeight() / 2
 
     for _, btn in ipairs(self.botones) do
-        btn.x = cx; btn.y = cy + btn.y_offset
+        btn.x = cx + btn.x_offset; btn.y = cy + btn.y_offset
         local w = btn.img:getWidth() * btn.base_scale
         local h = btn.img:getHeight() * btn.base_scale
-        local by = btn.y -- <--- ESTA ERA LA VARIABLE QUE FALTABA
         
-        if mx >= btn.x - w/2 and mx <= btn.x + w/2 and my >= by - h/2 and my <= by + h/2 then
+        if mx >= btn.x - w/2 and mx <= btn.x + w/2 and my >= btn.y - h/2 and my <= btn.y + h/2 then
             btn.target_scale = btn.base_scale * 1.15 
         else btn.target_scale = btn.base_scale end
         btn.scale = btn.scale + (btn.target_scale - btn.scale) * 15 * dt
@@ -115,10 +128,13 @@ function EstadoOpciones:Update(dt)
             Opciones.volumen = (mx - bx) / bw
             if Opciones.volumen < 0 then Opciones.volumen = 0 end
             if Opciones.volumen > 1 then Opciones.volumen = 1 end
-            if Opciones.musica_on then love.audio.setVolume(Opciones.volumen) end
+            if Opciones.musica_on and MusicaFondo then 
+                MusicaFondo:setVolume(Opciones.volumen) 
+            end
         end
     end
 end
+
 function EstadoOpciones:Draw()
     local cx = love.graphics.getWidth() / 2
     local cy = love.graphics.getHeight() / 2
@@ -128,13 +144,15 @@ function EstadoOpciones:Draw()
     love.graphics.printf("OPCIONES", 0, cy - 180, love.graphics.getWidth(), "center")
     
     for _, btn in ipairs(self.botones) do
-        if btn.id == "music" and not Opciones.musica_on then love.graphics.setColor(0.4, 0.4, 0.4) else love.graphics.setColor(1, 1, 1) end
+        -- Si están desactivados, los pintamos grises
+        if (btn.id == "music" and not Opciones.musica_on) or (btn.id == "audio" and not Opciones.sfx_on) then 
+            love.graphics.setColor(0.4, 0.4, 0.4) 
+        else 
+            love.graphics.setColor(1, 1, 1) 
+        end
         love.graphics.draw(btn.img, btn.x, btn.y, 0, btn.scale, btn.scale, btn.img:getWidth()/2, btn.img:getHeight()/2)
     end
 
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.draw(Texturas.btn_audio, cx - 120, cy + 20, 0, 0.25, 0.25, Texturas.btn_audio:getWidth()/2, Texturas.btn_audio:getHeight()/2)
-    
     love.graphics.setColor(0.3, 0.3, 0.3)
     love.graphics.rectangle("fill", cx - 50, cy + 10, 200, 20)
     love.graphics.setColor(0, 1, 0)
@@ -237,8 +255,11 @@ function EstadoJugando:Update(dt)
 
             if hayColision(jx_real, jy_real, self.jugador.hit_w, self.jugador.hit_h, jfx, jfy, self.jefe.hit_w, self.jefe.hit_h) or 
                self.jefe:ComprobarAtaqueJugador(jx_real, jy_real, self.jugador.hit_w, self.jugador.hit_h) then
-                if self.jugador:RecibirDano() and self.jugador.hp <= 0 then
-                    self.estado_partida = "derrota"; Evento.emit("derrota")
+                if self.jugador:RecibirDano() then
+                    Evento.emit("reproducir_sfx", "golpe") -- Suena si el jefe nos pega
+                    if self.jugador.hp <= 0 then
+                        self.estado_partida = "derrota"; Evento.emit("derrota")
+                    end
                 end
             end
         else
@@ -247,28 +268,17 @@ function EstadoJugando:Update(dt)
         end
     end
 
-    -- Bucle de actualización con REPULSIÓN ENTRE ENEMIGOS para que no se superpongan
     for i, e1 in ipairs(self.enemigos) do
         if e1.vivo then
             enemigosVivos = enemigosVivos + 1
             e1:Actualizar(dt, self.jugador.x, self.jugador.y)
-            
-            -- Empuje entre enemigos (Evita superposición)
-            for j, e2 in ipairs(self.enemigos) do
-                if i ~= j and e2.vivo then
-                    local dist_x, dist_y = e1.x - e2.x, e1.y - e2.y
-                    local dist = math.sqrt(dist_x^2 + dist_y^2)
-                    if dist < 25 and dist > 0.1 then
-                        e1.x = e1.x + (dist_x / dist) * 40 * dt
-                        e1.y = e1.y + (dist_y / dist) * 40 * dt
-                    end
-                end
-            end
-
             local ex, ey = e1.x + e1.hit_ox, e1.y + e1.hit_oy
             if hayColision(jx, jy, self.jugador.hit_w, self.jugador.hit_h, ex, ey, e1.hit_w, e1.hit_h) then
-                if self.jugador:RecibirDano() and self.jugador.hp <= 0 then
-                    self.estado_partida = "derrota"; Evento.emit("derrota")
+                if self.jugador:RecibirDano() then
+                    Evento.emit("reproducir_sfx", "golpe") -- Suena si un enemigo nos pega
+                    if self.jugador.hp <= 0 then
+                        self.estado_partida = "derrota"; Evento.emit("derrota")
+                    end
                 end
             end
         end
@@ -297,7 +307,6 @@ function EstadoJugando:Draw()
     
     if self.jefe and self.jefe.vivo then self.jefe:Dibujar() end
 
-    -- Bucle de dibujo que prioriza y renderiza correctamente la animación de ataque
     for _, enemigo in ipairs(self.enemigos) do
         if enemigo.vivo then
             local frame = math.floor(enemigo.anim_index)
@@ -350,6 +359,30 @@ function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
     FuenteGrande = love.graphics.newFont(36)
     FuenteChica = love.graphics.newFont(24) 
+    
+    -- === CARGA DE MÚSICA ===
+    local success, source = pcall(love.audio.newSource, "Sounds/musica.mp3", "stream")
+    if success then
+        MusicaFondo = source
+        MusicaFondo:setLooping(true)
+        MusicaFondo:setVolume(Opciones.volumen)
+        if Opciones.musica_on then MusicaFondo:play() end
+    end
+    
+    -- === CARGA DE SFX (EFECTOS DE SONIDO) ===
+    local succ_golpe, src_golpe = pcall(love.audio.newSource, "Sounds/golpe.mp3", "static")
+    if succ_golpe then SonidoGolpe = src_golpe end
+    
+    -- Manejador de eventos para reproducir sonidos de forma limpia
+    Evento.on("reproducir_sfx", function(tipo)
+        if not Opciones.sfx_on then return end
+        if tipo == "golpe" and SonidoGolpe then
+            local sfx = SonidoGolpe:clone() -- Permite reproducir múltiples golpes a la vez
+            sfx:setVolume(Opciones.volumen)
+            sfx:play()
+        end
+    end)
+    -- ======================
 
     Texturas.puerta = love.graphics.newImage("Sprites/Room/Puerta.png")
     Texturas.esquina = love.graphics.newImage("Sprites/Room/Esquina.png")
