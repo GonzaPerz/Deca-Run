@@ -6,6 +6,8 @@ Jugador.__index = Jugador
 function Jugador:Nuevo(x, y)
     local o = setmetatable({}, Jugador)
     o.x = x; o.y = y; o.vel = 150
+    o.hp = 3 
+    o.invulnerable = 0
     o.moviendose = false; o.anim_index = 1; o.anim_vel = 10
     o.mirando = "derecha" 
     o.atacando = false; o.ataque_timer = 0; o.ataque_duracion = 0.4
@@ -14,18 +16,13 @@ function Jugador:Nuevo(x, y)
     o.img_walk = Texturas.jugador_walk
     o.img_attack = Texturas.jugador_attack
 
-    o.frames_idle = 4
-    o.frames_walk = 6
-    o.frames_attack = 10
+    o.frames_idle = 4; o.frames_walk = 6; o.frames_attack = 10
 
     o.ancho_idle = o.img_idle:getWidth() / o.frames_idle
     o.ancho_walk = o.img_walk:getWidth() / o.frames_walk
     o.ancho_attack = o.img_attack:getWidth() / o.frames_attack
 
-    o.hit_ox = 18   
-    o.hit_oy = 22   
-    o.hit_w = 14    
-    o.hit_h = 15    
+    o.hit_ox = 18; o.hit_oy = 22; o.hit_w = 14; o.hit_h = 15    
     
     o.quads_idle = {}
     o.quads_walk = {}
@@ -44,7 +41,18 @@ function Jugador:Nuevo(x, y)
     return o
 end
 
+function Jugador:RecibirDano()
+    if self.invulnerable <= 0 then
+        self.hp = self.hp - 1
+        self.invulnerable = 1.5
+        return true
+    end
+    return false
+end
+
 function Jugador:Actualizar(dt)
+    if self.invulnerable > 0 then self.invulnerable = self.invulnerable - dt end
+
     if self.atacando then
         self.ataque_timer = self.ataque_timer - dt
         self.anim_index = self.anim_index + (self.frames_attack / self.ataque_duracion) * dt
@@ -79,20 +87,14 @@ function Jugador:Dibujar()
     local img_actual, quads_actual, frame_limit, ancho_actual
     
     if self.atacando then
-        img_actual = self.img_attack
-        quads_actual = self.quads_attack
-        frame_limit = self.frames_attack
-        ancho_actual = self.ancho_attack
+        img_actual = self.img_attack; quads_actual = self.quads_attack
+        frame_limit = self.frames_attack; ancho_actual = self.ancho_attack
     elseif self.moviendose then
-        img_actual = self.img_walk
-        quads_actual = self.quads_walk
-        frame_limit = self.frames_walk
-        ancho_actual = self.ancho_walk
+        img_actual = self.img_walk; quads_actual = self.quads_walk
+        frame_limit = self.frames_walk; ancho_actual = self.ancho_walk
     else
-        img_actual = self.img_idle
-        quads_actual = self.quads_idle
-        frame_limit = self.frames_idle
-        ancho_actual = self.ancho_idle
+        img_actual = self.img_idle; quads_actual = self.quads_idle
+        frame_limit = self.frames_idle; ancho_actual = self.ancho_idle
     end
 
     local frame = math.floor(self.anim_index)
@@ -104,10 +106,15 @@ function Jugador:Dibujar()
         scaleX = -1; offsetX = ancho_actual
     end
 
+    if self.invulnerable > 0 and math.floor(self.invulnerable * 10) % 2 == 0 then
+        love.graphics.setColor(1, 0, 0, 0.6)
+    end
+
     love.graphics.draw(img_actual, quads_actual[frame], self.x, self.y, 0, scaleX, 1, offsetX, 0)
+    love.graphics.setColor(1, 1, 1)
 end
 
-function Jugador:Atacar(enemigos)
+function Jugador:Atacar(enemigos, jefe)
     if not self.atacando then
         self.atacando = true
         self.ataque_timer = self.ataque_duracion
@@ -127,6 +134,16 @@ function Jugador:Atacar(enemigos)
             if enemigo.vivo and hayColision(hit_x, hit_y, hit_w, hit_h, ex, ey, enemigo.hit_w, enemigo.hit_h) then
                 enemigo.vivo = false
                 Juego.puntaje = Juego.puntaje + 10
+                Evento.emit("puntaje_actualizado")
+            end
+        end
+
+        if jefe and jefe.vivo then
+            local jx = jefe.x + jefe.hit_ox
+            local jy = jefe.y + jefe.hit_oy
+            if hayColision(hit_x, hit_y, hit_w, hit_h, jx, jy, jefe.hit_w, jefe.hit_h) then
+                jefe:RecibirDano(10)
+                Juego.puntaje = Juego.puntaje + 50
                 Evento.emit("puntaje_actualizado")
             end
         end

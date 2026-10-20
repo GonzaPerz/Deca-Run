@@ -41,7 +41,7 @@ function Habitacion:GenerarEnemigos(EnemigoClass, player_x, player_y)
     local enemigos_generados = {}
     local area_tiles = self.ancho * self.alto
     local cantidad = math.max(2, math.floor(area_tiles / 40)) 
-    local tipos_posibles = {"slime", "esqueleto"}
+    local tipos_posibles = {"esqueleto", "flyingeye", "goblin", "mushroom"} -- ACTUALIZADO CON TUS 4 ENEMIGOS
     
     for i = 1, cantidad do
         local rand_x, rand_y
@@ -68,13 +68,11 @@ function Habitacion:Dibujar(Texturas)
 
             love.graphics.setColor(1, 1, 1)
 
-            -- 1. Siempre dibujamos el piso de fondo
             local tex_centro = Texturas["piso_medio" .. self.grilla[col][row]]
             local sx_piso = self.tam_tile / tex_centro:getWidth()
             local sy_piso = self.tam_tile / tex_centro:getHeight()
             love.graphics.draw(tex_centro, x, y, 0, sx_piso, sy_piso)
 
-            -- 2. Superponemos Paredes, Esquinas y Puerta con la rotación perfecta
             if is_puerta or (col == 0 or row == 0 or col == self.ancho - 1 or row == self.alto - 1) then
                 local tex
                 local rot = 0
@@ -94,13 +92,13 @@ function Habitacion:Dibujar(Texturas)
                 elseif col == 0 and row == self.alto - 1 then
                     tex = Texturas.esquina; rot = -math.pi/2
                 elseif row == 0 then
-                    tex = Texturas.pared; rot = math.pi/2     -- Techo (rotado 90)
+                    tex = Texturas.pared; rot = math.pi/2     
                 elseif col == self.ancho - 1 then
-                    tex = Texturas.pared; rot = math.pi       -- Pared Derecha (rotado 180)
+                    tex = Texturas.pared; rot = math.pi       
                 elseif row == self.alto - 1 then
-                    tex = Texturas.pared; rot = -math.pi/2    -- Piso (rotado -90)
+                    tex = Texturas.pared; rot = -math.pi/2    
                 elseif col == 0 then
-                    tex = Texturas.pared; rot = 0             -- Pared Izquierda (sin rotar)
+                    tex = Texturas.pared; rot = 0             
                 end
 
                 local sx = self.tam_tile / tex:getWidth()
@@ -108,7 +106,6 @@ function Habitacion:Dibujar(Texturas)
                 local ox = tex:getWidth() / 2
                 local oy = tex:getHeight() / 2
 
-                -- Dibujamos desde el centro del tile para rotar sin desfasar
                 love.graphics.draw(tex, x + self.tam_tile/2, y + self.tam_tile/2, rot, sx, sy, ox, oy)
             end
         end
