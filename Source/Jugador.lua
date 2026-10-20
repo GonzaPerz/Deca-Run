@@ -1,4 +1,5 @@
 -- =================== CLASE JUGADOR ===================
+local Evento = require("Evento")
 local Jugador = {}
 Jugador.__index = Jugador
 
@@ -21,10 +22,10 @@ function Jugador:Nuevo(x, y)
     o.ancho_walk = o.img_walk:getWidth() / o.frames_walk
     o.ancho_attack = o.img_attack:getWidth() / o.frames_attack
 
-    o.hit_ox = 18   -- Margen izquierdo (lo centramos)
-    o.hit_oy = 22   -- Margen superior (lo empujamos hacia abajo, a los pies)
-    o.hit_w = 14    -- Ancho de la colisión bien finito
-    o.hit_h = 15    -- Solo mide la mitad inferior del cuerpo
+    o.hit_ox = 18   
+    o.hit_oy = 22   
+    o.hit_w = 14    
+    o.hit_h = 15    
     
     o.quads_idle = {}
     o.quads_walk = {}
@@ -52,7 +53,6 @@ function Jugador:Actualizar(dt)
 
     local dx, dy = 0, 0
     if not self.atacando then
-        -- Solo cambiamos hacia donde mira si apretamos izquierda o derecha
         if love.keyboard.isDown("left", "a") then dx = -1; self.mirando = "izquierda" end
         if love.keyboard.isDown("right", "d") then dx = 1; self.mirando = "derecha" end
         if love.keyboard.isDown("up", "w") then dy = -1 end
@@ -105,7 +105,6 @@ function Jugador:Dibujar()
     end
 
     love.graphics.draw(img_actual, quads_actual[frame], self.x, self.y, 0, scaleX, 1, offsetX, 0)
-    
 end
 
 function Jugador:Atacar(enemigos)
@@ -128,6 +127,7 @@ function Jugador:Atacar(enemigos)
             if enemigo.vivo and hayColision(hit_x, hit_y, hit_w, hit_h, ex, ey, enemigo.hit_w, enemigo.hit_h) then
                 enemigo.vivo = false
                 Juego.puntaje = Juego.puntaje + 10
+                Evento.emit("puntaje_actualizado")
             end
         end
     end

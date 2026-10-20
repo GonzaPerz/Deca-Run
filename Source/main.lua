@@ -3,9 +3,12 @@ local Enemigo = require("Enemigo")
 local JugadorClass = require("Jugador")
 local Habitacion = require("Habitacion")
 local Camera = require("camera") 
+local Evento = require("Evento")
+local HUDClass = require("HUD")
 
 Texturas = {}
 local ESCALA_MUNDO = 2
+local InterfazHUD = nil
 
 Juego = { gameover = false, victoria = false, enemigos = {}, puntaje = 0, sala_actual = 1 }
 
@@ -16,22 +19,96 @@ function MaquinaEstados:Cambiar(nuevo_estado, params)
     if self.estado_actual and self.estado_actual.Entrar then self.estado_actual:Entrar(params) end
 end
 
--- =================== ESTADO: MENÚ ===================
-local EstadoMenu = {}
-function EstadoMenu:Entrar() end
-function EstadoMenu:Update(dt) end
-function EstadoMenu:Draw()
-    love.graphics.setColor(1, 1, 1) -- <--- ESTA LÍNEA RESETEA EL COLOR
-    love.graphics.setFont(FuenteGrande)
-    love.graphics.printf("DECA-RUN", 0, 200, 800, "center")
-    love.graphics.setFont(FuenteChica)
-    love.graphics.printf("Presiona ENTER para Iniciar", 0, 300, 800, "center")
+-- =================== ESTADO: MENÚ INTERACTIVO ===================
+local EstadoMenu = {
+    botones = {}
+}
+
+function EstadoMenu:Entrar()
+    local centro_x = love.graphics.getWidth() / 2
+    local escala_base = 0.3 -- Achicamos los botones al 30% de su tamaño real
+    
+    self.botones = {
+        { 
+            img = Texturas.btn_play, 
+            x = centro_x, y = 250, 
+            base_scale = escala_base, scale = escala_base, target_scale = escala_base, 
+            accion = function() 
+                Juego.puntaje = 0
+                Juego.sala_actual = 1
+                Evento.emit("reset_juego")
+                MaquinaEstados:Cambiar(EstadoJugando)
+            end 
+        },
+        { 
+            img = Texturas.btn_options, 
+            x = centro_x, y = 350, 
+            base_scale = escala_base, scale = escala_base, target_scale = escala_base, 
+            accion = function() 
+                print("Acá abriremos el menú de opciones luego")
+            end 
+        },
+        { 
+            img = Texturas.btn_exit, 
+            x = centro_x, y = 450, 
+            base_scale = escala_base, scale = escala_base, target_scale = escala_base, 
+            accion = function() 
+                love.event.quit() 
+            end 
+        }
+    }
 end
+
+function EstadoMenu:Update(dt)
+    local mx, my = love.mouse.getPosition()
+    
+    for _, btn in ipairs(self.botones) do
+        -- Ajustamos la zona de clic al tamaño ESCALADO del botón
+        local w = btn.img:getWidth() * btn.base_scale
+        local h = btn.img:getHeight() * btn.base_scale
+        local bx = btn.x - (w / 2)
+        local by = btn.y - (h / 2)
+        
+        if mx >= bx and mx <= bx + w and my >= by and my <= by + h then
+            btn.target_scale = btn.base_scale * 1.15 -- Aumenta un 15% al pasar el mouse
+        else
+            btn.target_scale = btn.base_scale
+        end
+        
+        btn.scale = btn.scale + (btn.target_scale - btn.scale) * 15 * dt
+    end
+end
+
+function EstadoMenu:Draw()
+    love.graphics.setColor(1, 1, 1) 
+    love.graphics.setFont(FuenteGrande)
+    love.graphics.printf("DECA-RUN", 0, 100, 800, "center")
+    
+    for _, btn in ipairs(self.botones) do
+        local w = btn.img:getWidth()
+        local h = btn.img:getHeight()
+        love.graphics.draw(btn.img, btn.x, btn.y, 0, btn.scale, btn.scale, w/2, h/2)
+    end
+end
+
 function EstadoMenu:Keypressed(key)
     if key == "return" then
-        Juego.puntaje = 0
-        Juego.sala_actual = 1
-        MaquinaEstados:Cambiar(EstadoJugando)
+        self.botones[1].accion()
+    end
+end
+
+function EstadoMenu:Mousepressed(x, y, button)
+    if button == 1 then
+        for _, btn in ipairs(self.botones) do
+            local w = btn.img:getWidth() * btn.base_scale
+            local h = btn.img:getHeight() * btn.base_scale
+            local bx = btn.x - (w / 2)
+            local by = btn.y - (h / 2)
+            
+            if x >= bx and x <= bx + w and y >= by and y <= by + h then
+                btn.accion()
+            end
+        end
     end
 end
 
@@ -62,21 +139,16 @@ function EstadoJugando:Update(dt)
 
     self.jugador:Actualizar(dt)
     
-    -- =======================================================
-    -- NUEVAS COLISIONES CON PAREDES Y PUERTA (Usando Hitbox Real)
-    -- =======================================================
     local hit_x = self.jugador.x + self.jugador.hit_ox
     local hit_y = self.jugador.y + self.jugador.hit_oy
     local hit_w = self.jugador.hit_w
     local hit_h = self.jugador.hit_h
 
-    -- ¡MODIFICÁ ESTOS NÚMEROS A OJO! (Valores negativos te dejan meterte en la pared)
-    local ajuste_izq = -15  -- Deja que te metas 10 px en la pared izquierda
-    local ajuste_der = 15   -- Deja que te metas 10 px en la pared derecha
-    local ajuste_arr = -10  -- Clave: deja meter la cabeza en la pared de arriba
-    local ajuste_aba = 23   -- Deja meter los pies en la pared de abajo
+    local ajuste_izq = -15  
+    local ajuste_der = 15   
+    local ajuste_arr = -10  
+    local ajuste_aba = 23   
 
-    -- Guardamos los límites en self para poder dibujarlos de color verde en pantalla
     self.limite_izq = self.habitacion.tam_tile + ajuste_izq
     self.limite_der = (self.habitacion.ancho - 1) * self.habitacion.tam_tile + ajuste_der
     self.limite_arr = self.habitacion.tam_tile + ajuste_arr
@@ -88,7 +160,6 @@ function EstadoJugando:Update(dt)
     local p_y = p_row * self.habitacion.tam_tile
     local p_tam = self.habitacion.tam_tile
 
-    -- Abrir huecos si tocamos la puerta
     if self.estado_partida == "victoria" then
         if p_col == 0 and hit_y < p_y + p_tam and hit_y + hit_h > p_y then self.limite_izq = -1000 end
         if p_col == self.habitacion.ancho - 1 and hit_y < p_y + p_tam and hit_y + hit_h > p_y then self.limite_der = 10000 end
@@ -96,12 +167,10 @@ function EstadoJugando:Update(dt)
         if p_row == self.habitacion.alto - 1 and hit_x < p_x + p_tam and hit_x + hit_w > p_x then self.limite_aba = 10000 end
     end
 
-    -- Empuje del jugador (usando la hitbox de sus pies)
     if hit_x < self.limite_izq then self.jugador.x = self.limite_izq - self.jugador.hit_ox end
     if hit_x + hit_w > self.limite_der then self.jugador.x = self.limite_der - hit_w - self.jugador.hit_ox end
     if hit_y < self.limite_arr then self.jugador.y = self.limite_arr - self.jugador.hit_oy end
     if hit_y + hit_h > self.limite_aba then self.jugador.y = self.limite_aba - hit_h - self.jugador.hit_oy end
-    -- =======================================================
     
     local dx = self.jugador.x - self.camara.x
     local dy = self.jugador.y - self.camara.y
@@ -130,17 +199,23 @@ function EstadoJugando:Update(dt)
             local ex, ey = e1.x + e1.hit_ox, e1.y + e1.hit_oy
             if hayColision(jx, jy, self.jugador.hit_w, self.jugador.hit_h, ex, ey, e1.hit_w, e1.hit_h) then
                 self.estado_partida = "derrota"
+                Evento.emit("derrota")
             end
         end
     end
     
     if enemigosVivos == 0 then 
-        self.estado_partida = "victoria" 
+        if self.estado_partida ~= "victoria" then
+            self.estado_partida = "victoria" 
+            Evento.emit("sala_limpia")
+        end
+
         local puerta_x = self.habitacion.puerta_col * self.habitacion.tam_tile
         local puerta_y = self.habitacion.puerta_row * self.habitacion.tam_tile
         
         if hayColision(jx, jy, self.jugador.hit_w, self.jugador.hit_h, puerta_x, puerta_y, 32, 32) then
             Juego.sala_actual = Juego.sala_actual + 1
+            Evento.emit("cambio_sala")
             local opuesto = {3, 4, 1, 2}
             MaquinaEstados:Cambiar(EstadoJugando, {lado_prohibido = opuesto[self.habitacion.lado_puerta]})
         end
@@ -168,26 +243,7 @@ function EstadoJugando:Draw()
     end
     self.camara:detach()
 
-    love.graphics.setFont(FuenteChica)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Puntaje: " .. Juego.puntaje, 15, 15, 770, "left")
-    
-    if Juego.sala_actual >= 10 then love.graphics.setColor(1, 0, 0) end
-    love.graphics.printf("Sala: " .. Juego.sala_actual .. "/10", 0, 15, 785, "right")
-    love.graphics.setColor(1, 1, 1)
-
-    -- DIBUJO DE MENSAJES (VICTORIA / DERROTA)
-    if self.estado_partida == "victoria" then
-        love.graphics.setFont(FuenteGrande)
-        love.graphics.setColor(0, 1, 0) -- Verde para sala limpia
-        love.graphics.printf("¡SALA LIMPIADA! Avanza por la puerta", 0, 150, 800, "center")
-        love.graphics.setColor(1, 1, 1) -- Resetea a blanco
-    elseif self.estado_partida == "derrota" then 
-        love.graphics.setFont(FuenteGrande)
-        love.graphics.setColor(1, 0, 0) -- Rojo para Game Over
-        love.graphics.printf("GAME OVER - Presiona R para reiniciar", 0, 250, 800, "center") 
-        love.graphics.setColor(1, 1, 1) -- Resetea a blanco
-    end
+    InterfazHUD:Dibujar()
 end
 
 function EstadoJugando:Keypressed(key)
@@ -214,7 +270,6 @@ function love.load()
     Texturas.piso_medio2 = love.graphics.newImage("Sprites/Room/piso_medio2.png")
     Texturas.piso_medio3 = love.graphics.newImage("Sprites/Room/piso_medio3.png")
     
-    -- CARGAMOS LAS IMÁGENES SEPARADAS DEL JUGADOR
     Texturas.jugador_idle = love.graphics.newImage("Sprites/Player/Idle.png")
     Texturas.jugador_walk = love.graphics.newImage("Sprites/Player/Walk.png")
     Texturas.jugador_attack = love.graphics.newImage("Sprites/Player/Attack.png")
@@ -224,6 +279,11 @@ function love.load()
     Texturas.esqueleto_quieto = love.graphics.newImage("Sprites/Enemies/Esqueleto_quieto.png")
     Texturas.esqueleto_mov = love.graphics.newImage("Sprites/Enemies/Esqueleto_moviendose.png")
     
+    Texturas.btn_play = love.graphics.newImage("Sprites/Menu/Play Button.png")
+    Texturas.btn_options = love.graphics.newImage("Sprites/Menu/Options Button.png")
+    Texturas.btn_exit = love.graphics.newImage("Sprites/Menu/Exit Button.png")
+    
+    InterfazHUD = HUDClass:Nuevo()
     MaquinaEstados:Cambiar(EstadoMenu)
 end
 
@@ -238,5 +298,11 @@ end
 function love.keypressed(key)
     if MaquinaEstados.estado_actual and MaquinaEstados.estado_actual.Keypressed then
         MaquinaEstados.estado_actual:Keypressed(key)
+    end
+end
+
+function love.mousepressed(x, y, button, istouch, presses)
+    if MaquinaEstados.estado_actual and MaquinaEstados.estado_actual.Mousepressed then
+        MaquinaEstados.estado_actual:Mousepressed(x, y, button)
     end
 end
