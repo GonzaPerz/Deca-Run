@@ -120,6 +120,9 @@ function Jugador:Atacar(enemigos, jefe)
         self.ataque_timer = self.ataque_duracion
         self.anim_index = 1 
         
+        -- Emitimos el sonido del golpe
+        Evento.emit("reproducir_sfx", "golpe")
+        
         local hit_x, hit_y = self.x, self.y
         local hit_w, hit_h = 40, 40
         
