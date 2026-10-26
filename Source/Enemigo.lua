@@ -4,44 +4,47 @@ Enemigo.__index = Enemigo
 
 function Enemigo:Nuevo(x, y, tipo, vel)
     local o = setmetatable({}, Enemigo)
-    o.x = x; o.y = y; o.tipo = tipo; o.vel = vel or 40
-    o.vivo = true; o.moviendose = true; o.anim_index = 1
-    o.atacando = false
+    o:Reconfigurar(x, y, tipo, vel)
+    return o
+end
+
+function Enemigo:Reconfigurar(x, y, tipo, vel)
+    self.x = x; self.y = y; self.tipo = tipo; self.vel = vel or 40
+    self.vivo = true; self.moviendose = true; self.anim_index = 1
+    self.atacando = false
 
     local key_q = tipo and (tipo .. "_quieto") 
     local key_m = tipo and (tipo .. "_mov")
     local key_a = tipo and (tipo .. "_atacar")
 
-    o.img_mov = Texturas[key_m] or Texturas.esqueleto_mov
-    o.img_quieto = Texturas[key_q] or o.img_mov
-    o.img_atacar = Texturas[key_a] or o.img_mov
+    self.img_mov = Texturas[key_m] or Texturas.esqueleto_mov
+    self.img_quieto = Texturas[key_q] or self.img_mov
+    self.img_atacar = Texturas[key_a] or self.img_mov
         
-    o.frames_quieto = o.img_quieto and math.floor(o.img_quieto:getWidth() / o.img_quieto:getHeight()) or 1
-    if o.frames_quieto < 1 then o.frames_quieto = 1 end
+    self.frames_quieto = self.img_quieto and math.floor(self.img_quieto:getWidth() / self.img_quieto:getHeight()) or 1
+    if self.frames_quieto < 1 then self.frames_quieto = 1 end
 
-    o.frames_mov = o.img_mov and math.floor(o.img_mov:getWidth() / o.img_mov:getHeight()) or 1
-    if o.frames_mov < 1 then o.frames_mov = 1 end
+    self.frames_mov = self.img_mov and math.floor(self.img_mov:getWidth() / self.img_mov:getHeight()) or 1
+    if self.frames_mov < 1 then self.frames_mov = 1 end
 
-    o.frames_atacar = o.img_atacar and math.floor(o.img_atacar:getWidth() / o.img_atacar:getHeight()) or 1
-    if o.frames_atacar < 1 then o.frames_atacar = 1 end
+    self.frames_atacar = self.img_atacar and math.floor(self.img_atacar:getWidth() / self.img_atacar:getHeight()) or 1
+    if self.frames_atacar < 1 then self.frames_atacar = 1 end
 
-    o.ancho_quieto = o.img_quieto and (o.img_quieto:getWidth() / o.frames_quieto) or 32
-    o.alto_quieto = o.img_quieto and o.img_quieto:getHeight() or 32
-    o.ancho_mov = o.img_mov and (o.img_mov:getWidth() / o.frames_mov) or 32
-    o.alto_mov = o.img_mov and o.img_mov:getHeight() or 32
-    o.ancho_atacar = o.img_atacar and (o.img_atacar:getWidth() / o.frames_atacar) or o.ancho_quieto
-    o.alto_atacar = o.img_atacar and o.img_atacar:getHeight() or o.alto_quieto
+    self.ancho_quieto = self.img_quieto and (self.img_quieto:getWidth() / self.frames_quieto) or 32
+    self.alto_quieto = self.img_quieto and self.img_quieto:getHeight() or 32
+    self.ancho_mov = self.img_mov and (self.img_mov:getWidth() / self.frames_mov) or 32
+    self.alto_mov = self.img_mov and self.img_mov:getHeight() or 32
+    self.ancho_atacar = self.img_atacar and (self.img_atacar:getWidth() / self.frames_atacar) or self.ancho_quieto
+    self.alto_atacar = self.img_atacar and self.img_atacar:getHeight() or self.alto_quieto
     
-    o.quads_quieto = o:GenerarQuads(o.img_quieto, o.frames_quieto, o.ancho_quieto, o.alto_quieto)
-    o.quads_mov = o:GenerarQuads(o.img_mov, o.frames_mov, o.ancho_mov, o.alto_mov)
-    o.quads_atacar = o.img_atacar and o:GenerarQuads(o.img_atacar, o.frames_atacar, o.ancho_atacar, o.alto_atacar) or {}
+    self.quads_quieto = self:GenerarQuads(self.img_quieto, self.frames_quieto, self.ancho_quieto, self.alto_quieto)
+    self.quads_mov = self:GenerarQuads(self.img_mov, self.frames_mov, self.ancho_mov, self.alto_mov)
+    self.quads_atacar = self.img_atacar and self:GenerarQuads(self.img_atacar, self.frames_atacar, self.ancho_atacar, self.alto_atacar) or {}
 
-    o.hit_w = o.ancho_quieto * 0.45
-    o.hit_h = o.alto_quieto * 0.55
-    o.hit_ox = (o.ancho_quieto - o.hit_w) / 2
-    o.hit_oy = o.alto_quieto - o.hit_h
-    
-    return o
+    self.hit_w = self.ancho_quieto * 0.45
+    self.hit_h = self.alto_quieto * 0.55
+    self.hit_ox = (self.ancho_quieto - self.hit_w) / 2
+    self.hit_oy = self.alto_quieto - self.hit_h
 end
 
 function Enemigo:GenerarQuads(img, total, w, h)
@@ -70,7 +73,7 @@ function Enemigo:Actualizar(dt, player_x, player_y)
         self.atacando = true
     end
     
-    self.anim_index = self.anim_index + 8 * dt
+    self.anim_index = self.anim_index + 6 * dt
     local max_frames = self.moviendose and #self.quads_mov or #self.quads_quieto
     if self.atacando and #self.quads_atacar > 0 then max_frames = #self.quads_atacar end
 

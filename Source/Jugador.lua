@@ -1,4 +1,3 @@
--- =================== CLASE JUGADOR ===================
 local Evento = require("Evento")
 local Jugador = {}
 Jugador.__index = Jugador
@@ -45,6 +44,7 @@ function Jugador:RecibirDano()
     if self.invulnerable <= 0 then
         self.hp = self.hp - 1
         self.invulnerable = 1.5
+        Evento.emit("reproducir_sfx", "player_hit")
         return true
     end
     return false
@@ -120,8 +120,7 @@ function Jugador:Atacar(enemigos, jefe)
         self.ataque_timer = self.ataque_duracion
         self.anim_index = 1 
         
-        -- Emitimos el sonido del golpe
-        Evento.emit("reproducir_sfx", "golpe")
+        Evento.emit("reproducir_sfx", "ataque")
         
         local hit_x, hit_y = self.x, self.y
         local hit_w, hit_h = 40, 40
@@ -138,6 +137,7 @@ function Jugador:Atacar(enemigos, jefe)
                 enemigo.vivo = false
                 Juego.puntaje = Juego.puntaje + 10
                 Evento.emit("puntaje_actualizado")
+                Evento.emit("reproducir_sfx", "golpe")
             end
         end
 
@@ -148,6 +148,7 @@ function Jugador:Atacar(enemigos, jefe)
                 jefe:RecibirDano(10)
                 Juego.puntaje = Juego.puntaje + 50
                 Evento.emit("puntaje_actualizado")
+                Evento.emit("reproducir_sfx", "golpe")
             end
         end
     end
